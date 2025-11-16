@@ -115,6 +115,102 @@ export type Database = {
         }
         Relationships: []
       }
+      experiments: {
+        Row: {
+          asset_id: string | null
+          created_at: string | null
+          experiment_id: string
+          hypothesis: string | null
+          product_id: string | null
+          script_id: string | null
+          variation_label: string | null
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string | null
+          experiment_id?: string
+          hypothesis?: string | null
+          product_id?: string | null
+          script_id?: string | null
+          variation_label?: string | null
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string | null
+          experiment_id?: string
+          hypothesis?: string | null
+          product_id?: string | null
+          script_id?: string | null
+          variation_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiments_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "video_assets"
+            referencedColumns: ["asset_id"]
+          },
+          {
+            foreignKeyName: "experiments_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "experiments_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["script_id"]
+          },
+        ]
+      }
+      performance_metrics: {
+        Row: {
+          collected_at: string | null
+          comment_count: number | null
+          completion_rate: number | null
+          like_count: number | null
+          metric_id: string
+          post_id: string | null
+          share_count: number | null
+          view_count: number | null
+          watch_time_ms: number | null
+        }
+        Insert: {
+          collected_at?: string | null
+          comment_count?: number | null
+          completion_rate?: number | null
+          like_count?: number | null
+          metric_id?: string
+          post_id?: string | null
+          share_count?: number | null
+          view_count?: number | null
+          watch_time_ms?: number | null
+        }
+        Update: {
+          collected_at?: string | null
+          comment_count?: number | null
+          completion_rate?: number | null
+          like_count?: number | null
+          metric_id?: string
+          post_id?: string | null
+          share_count?: number | null
+          view_count?: number | null
+          watch_time_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_metrics_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "published_posts"
+            referencedColumns: ["post_id"]
+          },
+        ]
+      }
       products: {
         Row: {
           affiliate_link: string | null
@@ -153,6 +249,47 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      published_posts: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          experiment_id: string | null
+          hashtags: string[] | null
+          platform: string
+          platform_post_id: string | null
+          post_id: string
+          posted_at: string | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          experiment_id?: string | null
+          hashtags?: string[] | null
+          platform: string
+          platform_post_id?: string | null
+          post_id?: string
+          posted_at?: string | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          experiment_id?: string | null
+          hashtags?: string[] | null
+          platform?: string
+          platform_post_id?: string | null
+          post_id?: string
+          posted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "published_posts_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "experiments"
+            referencedColumns: ["experiment_id"]
+          },
+        ]
       }
       raw_videos: {
         Row: {
@@ -199,6 +336,65 @@ export type Database = {
         }
         Relationships: []
       }
+      scripts: {
+        Row: {
+          created_at: string | null
+          creative_variables: Json | null
+          hook: string | null
+          product_id: string | null
+          script_id: string
+          script_text: string
+        }
+        Insert: {
+          created_at?: string | null
+          creative_variables?: Json | null
+          hook?: string | null
+          product_id?: string | null
+          script_id?: string
+          script_text: string
+        }
+        Update: {
+          created_at?: string | null
+          creative_variables?: Json | null
+          hook?: string | null
+          product_id?: string | null
+          script_id?: string
+          script_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scripts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["product_id"]
+          },
+        ]
+      }
+      system_events: {
+        Row: {
+          agent_name: string | null
+          created_at: string | null
+          event_id: string
+          event_type: string
+          payload: Json | null
+        }
+        Insert: {
+          agent_name?: string | null
+          created_at?: string | null
+          event_id?: string
+          event_type: string
+          payload?: Json | null
+        }
+        Update: {
+          agent_name?: string | null
+          created_at?: string | null
+          event_id?: string
+          event_type?: string
+          payload?: Json | null
+        }
+        Relationships: []
+      }
       trend_snapshots: {
         Row: {
           competition_score: number | null
@@ -237,6 +433,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["product_id"]
+          },
+        ]
+      }
+      video_assets: {
+        Row: {
+          asset_id: string
+          created_at: string | null
+          duration_seconds: number | null
+          script_id: string | null
+          storage_path: string
+          thumbnail_path: string | null
+        }
+        Insert: {
+          asset_id?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          script_id?: string | null
+          storage_path: string
+          thumbnail_path?: string | null
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          script_id?: string | null
+          storage_path?: string
+          thumbnail_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_assets_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["script_id"]
           },
         ]
       }
