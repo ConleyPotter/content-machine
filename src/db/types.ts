@@ -154,6 +154,51 @@ export type Database = {
         }
         Relationships: []
       }
+      raw_videos: {
+        Row: {
+          author: string | null
+          caption: string | null
+          collected_at: string | null
+          comment_count: number | null
+          created_at: string | null
+          external_id: string
+          hashtags: string[] | null
+          id: string
+          like_count: number | null
+          platform: string
+          share_count: number | null
+          view_count: number | null
+        }
+        Insert: {
+          author?: string | null
+          caption?: string | null
+          collected_at?: string | null
+          comment_count?: number | null
+          created_at?: string | null
+          external_id: string
+          hashtags?: string[] | null
+          id?: string
+          like_count?: number | null
+          platform: string
+          share_count?: number | null
+          view_count?: number | null
+        }
+        Update: {
+          author?: string | null
+          caption?: string | null
+          collected_at?: string | null
+          comment_count?: number | null
+          created_at?: string | null
+          external_id?: string
+          hashtags?: string[] | null
+          id?: string
+          like_count?: number | null
+          platform?: string
+          share_count?: number | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
       trend_snapshots: {
         Row: {
           competition_score: number | null
