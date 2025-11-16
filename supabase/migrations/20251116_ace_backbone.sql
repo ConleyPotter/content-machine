@@ -16,6 +16,10 @@ create table if not exists products (
   created_at timestamptz default now()
 );
 
+-- Ensure the niche column exists
+alter table products 
+  add column if not exists niche text;
+
 -- Index for fast lookup by niche
 create index if not exists idx_products_niche on products(niche);
 
