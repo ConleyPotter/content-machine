@@ -2,7 +2,7 @@ import { supabase } from "../db/db";
 import type { Tables, TablesInsert, TablesUpdate } from "../db/types";
 import { identifierSchema, jsonSchema, nullableDateSchema, z } from "./validators";
 
-const scriptInsertSchema = z.object({
+export const scriptInsertSchema = z.object({
   created_at: nullableDateSchema,
   creative_variables: jsonSchema.nullable().optional(),
   hook: z.string().trim().nullable().optional(),
@@ -15,7 +15,9 @@ const scriptUpdateSchema = scriptInsertSchema.partial();
 
 const scriptIdSchema = identifierSchema.describe("script_id");
 
-export const createScript = async (payload: TablesInsert<"scripts">) => {
+export type ScriptInsertPayload = z.infer<typeof scriptInsertSchema>;
+
+export const createScript = async (payload: ScriptInsertPayload) => {
   const validated = scriptInsertSchema.parse(payload);
   const { data, error } = await supabase
     .from("scripts")

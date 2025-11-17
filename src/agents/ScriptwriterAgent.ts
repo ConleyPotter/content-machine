@@ -6,7 +6,7 @@ import {
   listImportantNotes,
   searchNotesByTopic,
 } from "../repos";
-import { scriptInputSchema } from "../schemas/scriptsSchema";
+import { generateScript } from "../services/scriptwriterService";
 import { z } from "zod";
 
 export interface ScriptwriterInput {
@@ -17,12 +17,6 @@ export interface ScriptwriterInput {
 export interface ScriptwriterResult {
   scriptId: string;
   script: Tables<"scripts">;
-}
-
-interface ScriptDraft {
-  scriptText: string;
-  hook?: string;
-  creativeVariables?: Record<string, unknown>;
 }
 
 const scriptwriterInputSchema = z.object({
@@ -55,33 +49,14 @@ export class ScriptwriterAgent extends BaseAgent {
         notesCount: notes?.length ?? 0,
       });
 
-      const draft = generateScript(product, notes ?? [], input.warmupNotes);
+      const scriptDTO = await generateScript(product, notes ?? []);
       await this.logEvent("generation.script_drafted", {
         productId: input.productId,
-        hasHook: Boolean(draft.hook),
+        hasHook: Boolean(scriptDTO.hook),
       });
 
-      let validatedScript: z.infer<typeof scriptInputSchema>;
-      try {
-        validatedScript = scriptInputSchema.parse({
-          productId: input.productId,
-          scriptText: draft.scriptText,
-          hook: draft.hook,
-          creativeVariables: draft.creativeVariables,
-        });
-      } catch (error) {
-        await this.logEvent("error.validation_failed", {
-          productId: input.productId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-
       const created = await createScript({
-        product_id: validatedScript.productId!,
-        script_text: validatedScript.scriptText,
-        hook: validatedScript.hook ?? null,
-        creative_variables: validatedScript.creativeVariables ?? null,
+        ...scriptDTO,
         created_at: this.now(),
       });
       await this.logEvent("db.script_stored", {
@@ -112,36 +87,5 @@ export class ScriptwriterAgent extends BaseAgent {
     }
   }
 }
-
-export const generateScript = (
-  product: Tables<"products">,
-  notes: Tables<"agent_notes">[],
-  warmupNotes?: string[],
-): ScriptDraft => {
-  const noteSummary = notes
-    .map((note) => `• ${note.topic ?? "note"}: ${note.content}`)
-    .join("\n");
-  const warmup = warmupNotes?.length
-    ? `Warmup notes: ${warmupNotes.join("; ")}.`
-    : "";
-
-  return {
-    hook: `Why ${product.name} stands out`,
-    scriptText: [
-      `Introducing ${product.name}.`,
-      product.description ?? "This product helps users solve key problems.",
-      warmup,
-      noteSummary ? `Insights:\n${noteSummary}` : "",
-      "Call to action: tap the link to learn more!",
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
-    creativeVariables: {
-      productCategory: product.category ?? "general",
-      sourcePlatform: product.source_platform,
-      hasNotes: notes.length > 0,
-    },
-  };
-};
 
 export default ScriptwriterAgent;
