@@ -1,25 +1,24 @@
 import { supabase } from "../db/db";
 import type { Tables, TablesInsert, TablesUpdate } from "../db/types";
-import { identifierSchema, jsonSchema, nullableDateSchema, z } from "./validators";
+import type { ScriptInsertDTO } from "../schemas/scriptsSchema";
 
-const scriptInsertSchema = z.object({
-  created_at: nullableDateSchema,
-  creative_variables: jsonSchema.nullable().optional(),
-  hook: z.string().trim().nullable().optional(),
-  product_id: identifierSchema.nullable().optional(),
-  script_id: identifierSchema.optional(),
-  script_text: z.string().min(1, "Script text is required"),
+const mapToDbPayload = (
+  payload: ScriptInsertDTO,
+): TablesInsert<"scripts"> => ({
+  script_id: payload.scriptId,
+  product_id: payload.productId,
+  script_text: payload.scriptText,
+  hook: payload.hook,
+  creative_variables: payload.creativeVariables,
+  created_at: payload.createdAt,
 });
 
-const scriptUpdateSchema = scriptInsertSchema.partial();
+export type ScriptInsertPayload = ScriptInsertDTO;
 
-const scriptIdSchema = identifierSchema.describe("script_id");
-
-export const createScript = async (payload: TablesInsert<"scripts">) => {
-  const validated = scriptInsertSchema.parse(payload);
+export const createScript = async (payload: ScriptInsertDTO) => {
   const { data, error } = await supabase
     .from("scripts")
-    .insert(validated)
+    .insert(mapToDbPayload(payload))
     .select("*")
     .returns<Tables<"scripts">[]>()
     .single();
@@ -46,18 +45,15 @@ export const listScripts = async () => {
 };
 
 export const getScriptById = async (scriptId: string) => {
-  const validatedId = scriptIdSchema.parse(scriptId);
   const { data, error } = await supabase
     .from("scripts")
     .select("*")
-    .eq("script_id", validatedId)
+    .eq("script_id", scriptId)
     .returns<Tables<"scripts">[]>()
     .maybeSingle();
 
   if (error) {
-    throw new Error(
-      `Failed to fetch script with id ${validatedId}: ${error.message}`,
-    );
+    throw new Error(`Failed to fetch script with id ${scriptId}: ${error.message}`);
   }
 
   return data;
@@ -67,52 +63,48 @@ export const updateScript = async (
   scriptId: string,
   changes: TablesUpdate<"scripts">,
 ) => {
-  const validatedId = scriptIdSchema.parse(scriptId);
-  const validatedChanges = scriptUpdateSchema.parse(changes);
   const { data, error } = await supabase
     .from("scripts")
-    .update(validatedChanges)
-    .eq("script_id", validatedId)
+    .update(changes)
+    .eq("script_id", scriptId)
     .select("*")
     .returns<Tables<"scripts">[]>()
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to update script ${validatedId}: ${error.message}`);
+    throw new Error(`Failed to update script ${scriptId}: ${error.message}`);
   }
 
   return data;
 };
 
 export const deleteScript = async (scriptId: string) => {
-  const validatedId = scriptIdSchema.parse(scriptId);
   const { data, error } = await supabase
     .from("scripts")
     .delete()
-    .eq("script_id", validatedId)
+    .eq("script_id", scriptId)
     .select("*")
     .returns<Tables<"scripts">[]>()
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to delete script ${validatedId}: ${error.message}`);
+    throw new Error(`Failed to delete script ${scriptId}: ${error.message}`);
   }
 
   return data;
 };
 
 export const listScriptsForProduct = async (productId: string) => {
-  const validatedProductId = identifierSchema.parse(productId);
   const { data, error } = await supabase
     .from("scripts")
     .select("*")
-    .eq("product_id", validatedProductId)
+    .eq("product_id", productId)
     .order("created_at", { ascending: false })
     .returns<Tables<"scripts">[]>();
 
   if (error) {
     throw new Error(
-      `Failed to list scripts for product ${validatedProductId}: ${error.message}`,
+      `Failed to list scripts for product ${productId}: ${error.message}`,
     );
   }
 
@@ -120,16 +112,15 @@ export const listScriptsForProduct = async (productId: string) => {
 };
 
 export const searchScriptsByHook = async (hookFragment: string) => {
-  const validatedFragment = identifierSchema.parse(hookFragment);
   const { data, error } = await supabase
     .from("scripts")
     .select("*")
-    .ilike("hook", `%${validatedFragment}%`)
+    .ilike("hook", `%${hookFragment}%`)
     .returns<Tables<"scripts">[]>();
 
   if (error) {
     throw new Error(
-      `Failed to search scripts by hook ${validatedFragment}: ${error.message}`,
+      `Failed to search scripts by hook ${hookFragment}: ${error.message}`,
     );
   }
 
@@ -137,12 +128,12 @@ export const searchScriptsByHook = async (hookFragment: string) => {
 };
 
 export const listRecentScripts = async (limit = 10) => {
-  const validatedLimit = z.number().int().positive().parse(limit);
+  const sanitizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 10;
   const { data, error } = await supabase
     .from("scripts")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(validatedLimit)
+    .limit(sanitizedLimit)
     .returns<Tables<"scripts">[]>();
 
   if (error) {
