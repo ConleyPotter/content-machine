@@ -28,7 +28,7 @@ const scriptwriterRunnable = RunnableSequence.from<
 
 export interface ScriptwriterChainResult {
   scriptText: string;
-  hook?: string;
+  hook: string;
   creativeVariables: ScriptwriterParserOutput["creativeVariables"];
 }
 

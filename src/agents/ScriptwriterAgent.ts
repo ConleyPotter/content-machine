@@ -57,7 +57,7 @@ export class ScriptwriterAgent extends BaseAgent {
 
       const created = await createScript({
         ...scriptDTO,
-        created_at: this.now(),
+        createdAt: this.now(),
       });
       await this.logEvent("db.script_stored", {
         productId: input.productId,

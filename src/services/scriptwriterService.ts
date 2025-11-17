@@ -1,19 +1,19 @@
 import type { Tables } from "../db/types";
 import { runScriptwriterChain } from "../llm/chains/scriptwriterChain";
-import { scriptInsertSchema, type ScriptInsertPayload } from "../repos/scripts";
+import { scriptInsertSchema, type ScriptInsertDTO } from "../schemas/scriptsSchema";
 
 export async function generateScript(
   product: Tables<"products">,
   notes: Tables<"agent_notes">[],
-): Promise<ScriptInsertPayload> {
+): Promise<ScriptInsertDTO> {
   const chainResult = await runScriptwriterChain({ product, notes });
 
-  const scriptPayload: ScriptInsertPayload = {
-    product_id: product.product_id,
-    script_text: chainResult.scriptText,
-    hook: chainResult.hook ?? null,
-    creative_variables: chainResult.creativeVariables ?? null,
-  };
+  const scriptPayload: ScriptInsertDTO = scriptInsertSchema.parse({
+    productId: product.product_id,
+    scriptText: chainResult.scriptText,
+    hook: chainResult.hook,
+    creativeVariables: chainResult.creativeVariables,
+  });
 
-  return scriptInsertSchema.parse(scriptPayload);
+  return scriptPayload;
 }
