@@ -11,15 +11,17 @@ vi.mock("../../../src/db/db", () => {
     single: vi.fn(async () => singleResponse),
   }));
 
-  return { supabase: { from }, __singleResponse: singleResponse };
+  const getSupabase = vi.fn(() => ({ from }));
+
+  return { getSupabase, __singleResponse: singleResponse };
 });
 
-const { supabase, __singleResponse } = await import("../../../src/db/db");
+const { getSupabase, __singleResponse } = await import("../../../src/db/db");
 
 describe("scriptsRepo.createScript", () => {
   beforeEach(() => {
     Object.assign(__singleResponse, { data: null, error: null });
-    vi.mocked(supabase.from).mockClear();
+    vi.mocked(getSupabase().from).mockClear();
   });
 
   it("persists a script and returns the created row", async () => {
@@ -35,7 +37,7 @@ describe("scriptsRepo.createScript", () => {
       createdAt: script.created_at,
     });
 
-    expect(supabase.from).toHaveBeenCalledWith("scripts");
+    expect(getSupabase().from).toHaveBeenCalledWith("scripts");
     expect(result).toEqual(script);
   });
 

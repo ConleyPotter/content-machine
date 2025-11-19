@@ -1,6 +1,13 @@
 import { PromptTemplate } from "@langchain/core/prompts";
 import { scriptwriterOutputParser } from "../parsers/scriptwriterParser";
 
+export interface ScriptwriterPromptInput {
+  productName: string;
+  productDescription: string;
+  category: string;
+  notes: string;
+}
+
 export const scriptwriterPromptTemplate = new PromptTemplate({
   template: `
 You are ACE's Scriptwriter. Craft concise, high-impact short-form video scripts that educate and persuade viewers.
@@ -32,4 +39,8 @@ Reference Notes (prioritize compelling insights):
 
 export const buildScriptwriterPrompt = (
   input: ScriptwriterPromptInput,
-): Promise<string> => scriptwriterPromptTemplate.format(input);
+): Promise<string> =>
+  scriptwriterPromptTemplate.format({
+    ...input,
+    format_instructions: scriptwriterOutputParser.getFormatInstructions(),
+  });

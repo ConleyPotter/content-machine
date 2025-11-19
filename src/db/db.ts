@@ -1,43 +1,43 @@
-import { supabase } from "./supabase";
+import { getSupabase } from "./supabase";
 import type { TablesInsert } from "./types";
 
 export const insertScript = (script: TablesInsert<"scripts">) =>
-  supabase.from("scripts").insert(script).select().single();
+  getSupabase().from("scripts").insert(script).select().single();
 
-export const selectScripts = () => supabase.from("scripts").select("*");
+export const selectScripts = () => getSupabase().from("scripts").select("*");
 
 export const insertVideoAsset = (asset: TablesInsert<"video_assets">) =>
-  supabase.from("video_assets").insert(asset).select().single();
+  getSupabase().from("video_assets").insert(asset).select().single();
 
 export const selectVideoAssets = () =>
-  supabase.from("video_assets").select("*");
+  getSupabase().from("video_assets").select("*");
 
 export const insertExperiment = (experiment: TablesInsert<"experiments">) =>
-  supabase.from("experiments").insert(experiment).select().single();
+  getSupabase().from("experiments").insert(experiment).select().single();
 
 export const selectExperiments = () =>
-  supabase.from("experiments").select("*");
+  getSupabase().from("experiments").select("*");
 
 export const insertPublishedPost = (
   post: TablesInsert<"published_posts">,
-) => supabase.from("published_posts").insert(post).select().single();
+) => getSupabase().from("published_posts").insert(post).select().single();
 
 export const selectPublishedPosts = () =>
-  supabase.from("published_posts").select("*");
+  getSupabase().from("published_posts").select("*");
 
 export const logPerformanceMetric = (
   metric: TablesInsert<"performance_metrics">,
 ) =>
-  supabase.from("performance_metrics").insert(metric).select().single();
+  getSupabase().from("performance_metrics").insert(metric).select().single();
 
 export const selectPerformanceMetrics = () =>
-  supabase.from("performance_metrics").select("*");
+  getSupabase().from("performance_metrics").select("*");
 
 export const logSystemEvent = (event: TablesInsert<"system_events">) =>
-  supabase.from("system_events").insert(event).select().single();
+  getSupabase().from("system_events").insert(event).select().single();
 
 export const selectSystemEvents = () =>
-  supabase.from("system_events").select("*");
+  getSupabase().from("system_events").select("*");
 
 export const aceDb = {
   insertScript,
@@ -55,6 +55,4 @@ export const aceDb = {
 };
 
 export type AceDb = typeof aceDb;
-
-export { supabase };
 

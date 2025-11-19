@@ -12,7 +12,7 @@ export const scriptInsertSchema = z.object({
   scriptText: z.string().trim().min(1, "Script text is required"),
   hook: z.string().trim().min(1, "Hook is required"),
   creativeVariables: creativeVariablesSchema,
-  createdAt: z.string().datetime().optional(),
+  createdAt: z.string().datetime().nullable().optional(),
 });
 
 export type ScriptInsertDTO = z.infer<typeof scriptInsertSchema>;
