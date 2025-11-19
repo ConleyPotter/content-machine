@@ -22,7 +22,7 @@ const scriptwriterRunnable = RunnableSequence.from<
   ScriptwriterParserOutput
 >([
   buildScriptwriterPrompt,
-  model,
+  model as any,
   scriptwriterOutputParser,
 ]);
 

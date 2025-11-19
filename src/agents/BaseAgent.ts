@@ -29,7 +29,7 @@ export abstract class BaseAgent {
     return logSystemEvent({
       agent_name: this.agentName,
       event_type: eventType,
-      payload: payload ?? null,
+      payload: (payload as any) ?? null,
       created_at: this.now(),
     });
   }
