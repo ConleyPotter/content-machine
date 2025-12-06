@@ -38,6 +38,18 @@ export const systemEventsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).optional(),
 });
 
+export const loginRequestSchema = z.object({
+  email: z.string().email("email must be valid"),
+  password: z.string().min(6, "password is required"),
+});
+
+export const signupRequestSchema = z.object({
+  email: z.string().email("email must be valid"),
+  password: z.string().min(6, "password is required"),
+});
+
 export type AgentName = z.infer<typeof agentNameSchema>;
 export type WorkflowId = z.infer<typeof workflowIdSchema>;
 export type FeedbackRequest = z.infer<typeof feedbackRequestSchema>;
+export type LoginRequest = z.infer<typeof loginRequestSchema>;
+export type SignupRequest = z.infer<typeof signupRequestSchema>;
