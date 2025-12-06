@@ -1,80 +1,75 @@
-import { createServer } from "http";
 import type { NextApiHandler, NextApiRequest, NextApiResponse } from "next";
-import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import loginHandler from "@/api/auth/login";
-import signupHandler from "@/api/auth/signup";
+import loginHandler from "../../src/api/auth/login";
+import signupHandler from "../../src/api/auth/signup";
 import {
   type AuthenticatedNextApiRequest,
   withAuth,
-} from "@/middleware/withAuth";
+} from "../../src/middleware/withAuth";
 
-const signUpMock = vi.fn();
-const signInWithPasswordMock = vi.fn();
-const getUserMock = vi.fn();
-const mockLogSystemEvent = vi.fn();
+const { signUpMock, signInWithPasswordMock, getUserMock, mockLogSystemEvent } =
+  vi.hoisted(() => ({
+    signUpMock: vi.fn(),
+    signInWithPasswordMock: vi.fn(),
+    getUserMock: vi.fn(),
+    mockLogSystemEvent: vi.fn(),
+  }));
 
-vi.mock("@/db/supabase", () => ({
-  getSupabase: vi.fn(() => ({
+vi.mock("../../src/db/supabase", () => {
+  const getSupabase = vi.fn(() => ({
     auth: {
       signUp: signUpMock,
       signInWithPassword: signInWithPasswordMock,
       getUser: getUserMock,
     },
-  })),
-}));
+  }));
 
-vi.mock("@/repos/systemEvents", () => ({
-  logSystemEvent: mockLogSystemEvent,
-}));
+  return { getSupabase };
+});
 
-const createApiServer = (handler: NextApiHandler) =>
-  createServer((req, res) => {
-    const chunks: Buffer[] = [];
+vi.mock("../../src/repos/systemEvents", () => {
+  const logSystemEvent = mockLogSystemEvent;
+  return { logSystemEvent };
+});
 
-    req.on("data", (chunk) =>
-      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk),
-    );
+const runHandler = async (
+  handler: NextApiHandler,
+  {
+    method = "GET",
+    body,
+    headers = {},
+  }: { method?: string; body?: unknown; headers?: Record<string, string> },
+) => {
+  const req = {
+    method,
+    body,
+    headers,
+  } as unknown as NextApiRequest;
 
-    req.on("end", async () => {
-      const bodyString = Buffer.concat(chunks).toString();
-      const reqWithBody = req as NextApiRequest & { body?: unknown };
+  let statusCode = 200;
+  let jsonBody: unknown;
 
-      if (bodyString) {
-        try {
-          reqWithBody.body = JSON.parse(bodyString);
-        } catch {
-          reqWithBody.body = bodyString;
-        }
-      }
+  const res = {
+    status(code: number) {
+      statusCode = code;
+      return this;
+    },
+    json(payload: unknown) {
+      jsonBody = payload;
+      return this;
+    },
+    setHeader: vi.fn(),
+    end(payload?: unknown) {
+      jsonBody = payload;
+      return this;
+    },
+  } as unknown as NextApiResponse;
 
-      const resWithJson = res as NextApiResponse;
-      (resWithJson as NextApiResponse).status = (code: number) => {
-        res.statusCode = code;
-        return resWithJson;
-      };
-      (resWithJson as NextApiResponse).json = (payload: unknown) => {
-        if (!res.headersSent) {
-          res.setHeader("Content-Type", "application/json");
-        }
-        res.end(JSON.stringify(payload));
-        return resWithJson;
-      };
+  await handler(req, res);
 
-      try {
-        await handler(reqWithBody, resWithJson);
-      } catch (error) {
-        res.statusCode = 500;
-        res.end(
-          JSON.stringify({
-            success: false,
-            error: error instanceof Error ? error.message : String(error),
-          }),
-        );
-      }
-    });
-  });
+  return { status: statusCode, body: jsonBody };
+};
 
 const signupApiRoute: NextApiHandler = async (req, res) => {
   const result = await signupHandler(req.body);
@@ -108,11 +103,12 @@ describe("Signup endpoint", () => {
       error: null,
     });
 
-    const response = await request(createApiServer(signupApiRoute))
-      .post("/api/auth/signup")
-      .send({ email: "test@example.com", password: "password123" })
-      .expect(200);
+    const response = await runHandler(signupApiRoute, {
+      method: "POST",
+      body: { email: "test@example.com", password: "password123" },
+    });
 
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
       success: true,
       data: {
@@ -140,11 +136,12 @@ describe("Login endpoint", () => {
       error: null,
     });
 
-    const response = await request(createApiServer(loginApiRoute))
-      .post("/api/auth/login")
-      .send({ email: "test@example.com", password: "password123" })
-      .expect(200);
+    const response = await runHandler(loginApiRoute, {
+      method: "POST",
+      body: { email: "test@example.com", password: "password123" },
+    });
 
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
       success: true,
       data: {
@@ -160,11 +157,12 @@ describe("Login endpoint", () => {
       error: new Error("Invalid credentials"),
     });
 
-    const response = await request(createApiServer(loginApiRoute))
-      .post("/api/auth/login")
-      .send({ email: "test@example.com", password: "wrong-password" })
-      .expect(200);
+    const response = await runHandler(loginApiRoute, {
+      method: "POST",
+      body: { email: "test@example.com", password: "wrong-password" },
+    });
 
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
       success: false,
       error: "Invalid credentials",
@@ -179,11 +177,12 @@ describe("withAuth middleware", () => {
       error: null,
     });
 
-    const response = await request(createApiServer(protectedRoute))
-      .get("/api/protected")
-      .set("Authorization", "Bearer valid-token")
-      .expect(200);
+    const response = await runHandler(protectedRoute, {
+      method: "GET",
+      headers: { authorization: "Bearer valid-token" },
+    });
 
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
       success: true,
       data: { user: { id: "u1", email: "test@example.com" } },
@@ -192,10 +191,9 @@ describe("withAuth middleware", () => {
   });
 
   it("returns 401 when the authorization header is missing", async () => {
-    const response = await request(createApiServer(protectedRoute))
-      .get("/api/protected")
-      .expect(401);
+    const response = await runHandler(protectedRoute, { method: "GET" });
 
+    expect(response.status).toBe(401);
     expect(response.body).toEqual({ success: false, error: "Unauthorized" });
     expect(getUserMock).not.toHaveBeenCalled();
   });
@@ -206,11 +204,12 @@ describe("withAuth middleware", () => {
       error: new Error("invalid"),
     });
 
-    const response = await request(createApiServer(protectedRoute))
-      .get("/api/protected")
-      .set("Authorization", "Bearer bad-token")
-      .expect(401);
+    const response = await runHandler(protectedRoute, {
+      method: "GET",
+      headers: { authorization: "Bearer bad-token" },
+    });
 
+    expect(response.status).toBe(401);
     expect(response.body).toEqual({ success: false, error: "Unauthorized" });
   });
 });
