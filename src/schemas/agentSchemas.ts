@@ -9,9 +9,10 @@ export type ScriptwriterAgentInput = z.infer<typeof scriptwriterAgentInputSchema
 
 export const ScriptWriterInput = z.object({
   productId: z.string(),
-  trendSnapshotIds: z.array(z.string()).optional(),
-  patternIds: z.array(z.string()).optional(),
-  creativeVariables: z.record(z.string()).optional(),
+  productSummary: z.string().trim().min(1, "Product summary is required"),
+  trendSummaries: z.array(z.string().trim().min(1)).default([]),
+  patternSummaries: z.array(z.string().trim().min(1)).default([]),
+  creativeVariables: z.record(z.string().trim()).default({}),
 });
 
 export type ScriptWriterInputType = z.infer<typeof ScriptWriterInput>;
