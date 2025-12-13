@@ -1,26 +1,188 @@
 import { randomUUID } from "crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ScriptwriterAgent } from "@/agents/ScriptwriterAgent";
-import { getSupabase } from "@/db/db";
 import * as agentNotesRepo from "@/repos/agentNotes";
 import * as productsRepo from "@/repos/products";
 import * as scriptsRepo from "@/repos/scripts";
 import { ScriptWriterInput, ScriptOutput } from "@/schemas/scriptwriterSchemas";
 import { scriptInsertSchema } from "@/schemas/scriptsSchema";
 import * as scriptwriterChainModule from "@/llm/chains/scriptwriterChain";
-import { integrationEnv } from "../setup";
 
-const describeIf = integrationEnv.hasSupabaseCredentials ? describe : describe.skip;
+type TableName =
+  | "products"
+  | "scripts"
+  | "system_events"
+  | "agent_notes"
+  | "creative_patterns"
+  | "trend_snapshots";
 
-const supabase = getSupabase();
+type Row = Record<string, any>;
 
-const clearTablesForAgent = async (agentName: string, productId?: string) => {
-  await supabase.from("system_events").delete().eq("agent_name", agentName);
-  await supabase.from("agent_notes").delete().eq("agent_name", agentName);
+function createInMemorySupabase() {
+  const db: Record<TableName, Row[]> = {
+    products: [],
+    scripts: [],
+    system_events: [],
+    agent_notes: [],
+    creative_patterns: [],
+    trend_snapshots: [],
+  };
+
+  const buildQuery = (table: TableName) => {
+    let filters: Array<(row: Row) => boolean> = [];
+    let orderSpec: { column: string; ascending: boolean } | null = null;
+    let responseData: Row[] = [];
+    let hasExplicitResponse = false;
+
+    const applyFilters = () => {
+      const base = db[table];
+      const filtered = filters.length
+        ? base.filter((row) => filters.every((fn) => fn(row)))
+        : [...base];
+
+      if (orderSpec) {
+        filtered.sort((a, b) => {
+          const aVal = a[orderSpec.column];
+          const bVal = b[orderSpec.column];
+          if (aVal === bVal) return 0;
+          return orderSpec.ascending
+            ? aVal > bVal
+              ? 1
+              : -1
+            : aVal < bVal
+            ? 1
+            : -1;
+        });
+      }
+
+      return filtered;
+    };
+
+    const response = {
+      insert: (payload: Row | Row[]) => {
+        const rows = Array.isArray(payload) ? payload : [payload];
+        const now = new Date().toISOString();
+        const inserted = rows.map((row) => {
+          const record = { ...row };
+          if (table === "scripts" && !record.script_id) {
+            record.script_id = randomUUID();
+          }
+          if (table === "products" && !record.product_id) {
+            record.product_id = randomUUID();
+          }
+          if ("created_at" in record && !record.created_at) {
+            record.created_at = now;
+          }
+          db[table].push(record);
+          return record;
+        });
+        responseData = inserted;
+        hasExplicitResponse = true;
+        return response;
+      },
+      select: () => {
+        hasExplicitResponse = false;
+        return response;
+      },
+      update: (changes: Row) => {
+        const updated: Row[] = [];
+        db[table] = db[table].map((row) => {
+          if (!filters.length || filters.every((fn) => fn(row))) {
+            const newRow = { ...row, ...changes };
+            updated.push(newRow);
+            return newRow;
+          }
+          return row;
+        });
+        responseData = updated;
+        hasExplicitResponse = true;
+        return response;
+      },
+      delete: () => {
+        const removed = db[table].filter(
+          (row) => filters.length && filters.every((fn) => fn(row)),
+        );
+        db[table] = db[table].filter(
+          (row) => !(filters.length && filters.every((fn) => fn(row))),
+        );
+        responseData = removed;
+        hasExplicitResponse = true;
+        return response;
+      },
+      eq: (column: string, value: unknown) => {
+        filters.push((row) => row[column] === value);
+        return response;
+      },
+      order: (column: string, options?: { ascending?: boolean }) => {
+        orderSpec = { column, ascending: options?.ascending ?? true };
+        return response;
+      },
+      limit: (limit: number) => {
+        responseData = responseData.slice(0, limit);
+        hasExplicitResponse = true;
+        return response;
+      },
+      ilike: (_column: string, _value: string) => response,
+      returns: () => response,
+      single: async () => ({
+        data: (hasExplicitResponse ? responseData : applyFilters())[0] ?? null,
+        error: null,
+      }),
+      maybeSingle: async () => ({
+        data: (hasExplicitResponse ? responseData : applyFilters())[0] ?? null,
+        error: null,
+      }),
+      then: (onFulfilled: (value: { data: Row[]; error: null }) => unknown) =>
+        Promise.resolve({
+          data: hasExplicitResponse ? responseData : applyFilters(),
+          error: null,
+        }).then(onFulfilled),
+      catch: (
+        onRejected: (reason?: unknown) => unknown,
+      ): Promise<unknown> => Promise.resolve({ data: null, error: null }).catch(onRejected),
+      finally: (onFinally?: (() => void) | null | undefined) =>
+        Promise.resolve().finally(onFinally),
+    };
+
+    return response;
+  };
+
+  const getSupabase = () => ({
+    from: (table: TableName) => buildQuery(table),
+  });
+
+  const reset = () => {
+    (Object.keys(db) as TableName[]).forEach((key) => {
+      db[key] = [];
+    });
+  };
+
+  return { getSupabase, db, reset };
+}
+
+const mockDb = vi.hoisted(() => createInMemorySupabase());
+
+vi.mock("@/db/db", () => ({
+  getSupabase: mockDb.getSupabase,
+}));
+
+const describeIf = describe;
+
+const clearTablesForAgent = (agentName: string, productId?: string) => {
+  mockDb.db.system_events = mockDb.db.system_events.filter(
+    (event) => event.agent_name !== agentName,
+  );
+  mockDb.db.agent_notes = mockDb.db.agent_notes.filter(
+    (note) => note.agent_name !== agentName,
+  );
 
   if (productId) {
-    await supabase.from("scripts").delete().eq("product_id", productId);
-    await supabase.from("products").delete().eq("product_id", productId);
+    mockDb.db.scripts = mockDb.db.scripts.filter(
+      (script) => script.product_id !== productId,
+    );
+    mockDb.db.products = mockDb.db.products.filter(
+      (product) => product.product_id !== productId,
+    );
   }
 };
 
@@ -33,12 +195,13 @@ describeIf("ScriptwriterAgent integration", () => {
   beforeEach(async () => {
     agentName = `${baseAgentName}-${randomUUID()}`;
     productId = randomUUID();
-    await clearTablesForAgent(agentName, productId);
+    mockDb.reset();
+    clearTablesForAgent(agentName, productId);
     vi.restoreAllMocks();
   });
 
   afterEach(async () => {
-    await clearTablesForAgent(agentName, productId);
+    clearTablesForAgent(agentName, productId);
     vi.restoreAllMocks();
   });
 
@@ -65,6 +228,32 @@ describeIf("ScriptwriterAgent integration", () => {
       updated_at: new Date().toISOString(),
       affiliate_link: null,
       image_url: null,
+      meta: null,
+    });
+
+    mockDb.db.creative_patterns.push({
+      pattern_id: "pattern-1",
+      product_id: productId,
+      structure: "Story arc",
+      style_tags: ["casual"],
+      emotion_tags: ["bold"],
+      hook_text: "Lead with surprise",
+      created_at: new Date().toISOString(),
+      updated_at: null,
+      description: "A reusable pattern",
+      name: "Pattern One",
+      meta: null,
+      source_platform: "integration",
+    });
+
+    mockDb.db.trend_snapshots.push({
+      snapshot_id: "trend-1",
+      product_id: productId,
+      tiktok_trend_tags: ["tag-a", "tag-b"],
+      velocity_score: 0.9,
+      popularity_score: 0.8,
+      created_at: new Date().toISOString(),
+      captured_at: new Date().toISOString(),
       meta: null,
     });
 
@@ -105,13 +294,13 @@ describeIf("ScriptwriterAgent integration", () => {
     const notes = await agentNotesRepo.listNotesForAgent(agentName);
     expect(notes.some((note) => note.topic === "script_generation")).toBe(true);
 
-    const { data: events, error } = await supabase
-      .from("system_events")
-      .select("*")
-      .eq("agent_name", agentName)
-      .order("created_at", { ascending: true });
-    expect(error).toBeNull();
-    const eventTypes = events?.map((event) => event.event_type);
+    const eventTypes = mockDb.db.system_events
+      .filter((event) => event.agent_name === agentName)
+      .sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      )
+      .map((event) => event.event_type);
     expect(eventTypes).toEqual([
       "agent.start",
       "script.generate.start",
@@ -156,13 +345,13 @@ describeIf("ScriptwriterAgent integration", () => {
     const scripts = await scriptsRepo.listScriptsForProduct(productId);
     expect(scripts).toHaveLength(0);
 
-    const { data: events, error } = await supabase
-      .from("system_events")
-      .select("*")
-      .eq("agent_name", agentName)
-      .order("created_at", { ascending: true });
-    expect(error).toBeNull();
-    const eventTypes = events?.map((event) => event.event_type);
+    const eventTypes = mockDb.db.system_events
+      .filter((event) => event.agent_name === agentName)
+      .sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      )
+      .map((event) => event.event_type);
     expect(eventTypes).toEqual([
       "agent.start",
       "script.generate.start",
