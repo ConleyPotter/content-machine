@@ -1,24 +1,48 @@
-# AGENTS.md — Rules for ACE Agents
+# ScriptwriterAgent — ACE Agent Profile
 
 ## Purpose
-Defines the rules and constraints for all ACE agent implementations.
+Generate structured short-form scripts for products using creative patterns and trend data.
 
-## Agent Responsibilities
-• orchestrate logic, not perform it  
-• delegate work to services, repos, and workflows  
-• validate inputs using schemas before acting  
-• emit system events through BaseAgent  
-• maintain predictable, typed interfaces  
+## Inputs
+• productId  
+• trendSnapshotIds  
+• patternIds  
+• creativeVariables  
 
-## Agent Prohibitions
-• agents must not call Supabase directly  
-• agents must not run raw SQL  
-• agents must not call LLMs directly  
-• agents must not perform Zod validation inside agent files  
-• agents must not bypass BaseAgent lifecycle rules  
+## Outputs
+• structured script object with title, hook, CTA, outline, body  
+• persisted to scripts table with metadata  
 
-## Required Patterns
-• extend BaseAgent  
-• implement run() with explicit inputs and outputs  
-• log agent.start and agent.success  
-• use try/catch and log agent.error  
+## Responsibilities
+• validate inputs  
+• gather creative context  
+• call scriptwriterChain  
+• persist results  
+• emit events  
+• write rationale notes  
+
+## Data Access
+• reads: products, creative_patterns, trend_snapshots  
+• writes: scripts, agent_notes  
+
+## Events Emitted
+• agent.start  
+• agent.success  
+• agent.error  
+• script.generate.start  
+• script.generate.success  
+• script.generate.error  
+
+## Testing
+• covered by Vitest unit and integration tests  
+
+## Deprecated Components
+• the old ScriptwriterService has been retired; all logic now resides within ScriptwriterAgent and scriptwriterChain  
+
+## Notes for Future Agents or Codex Runs
+• always validate inputs with Zod  
+• never access Supabase directly  
+• always emit lifecycle and domain events  
+• use repositories for persistence  
+• use scriptwriterChain for LLM generation  
+• keep file and class names consistent across upgrades  
