@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { jsonSchema, z } from "../repos/validators";
 
 const creativeVariablesSchema = z
   .object({
@@ -6,7 +6,7 @@ const creativeVariablesSchema = z
     structure: z.string().trim().min(1, "Structure is required"),
     style: z.string().trim().min(1, "Style is required"),
   })
-  .passthrough();
+  .catchall(jsonSchema);
 
 export const scriptInsertSchema = z.object({
   scriptId: z.string().uuid().optional(),
